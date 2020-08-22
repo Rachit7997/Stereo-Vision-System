@@ -1,0 +1,164 @@
+#Dual camera with multi threads...
+from sys import argv
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
+import cv2
+import numpy as np
+import time
+
+
+class cam1(QThread):
+	def __init__(self):
+		super(cam1, self).__init__()
+		#self.n = 0
+	def __del__(self):
+		self.wait()
+	
+	def run(self):
+		while True:
+			self.emit(SIGNAL('1'))
+			time.sleep(0.15)
+			#self.n+=1
+	#def stop_thread(self):
+		
+		
+
+class cam2(QThread):
+	
+	def __init__(self):
+		super(cam2, self).__init__()
+		#self.n = 0
+	
+	def __del__(self):
+		self.wait()
+	
+	def run(self):
+		while True:
+			self.emit(SIGNAL('2'))
+			time.sleep(0.15)
+			#self.n+=1
+
+class main_window (QMainWindow):
+	def __init__(self, parent=None):
+		super(main_window, self).__init__(parent)
+		self.wg = widget(self)
+		self.setCentralWidget(self.wg)
+		self.setWindowTitle("Welcome To QThreads.")
+		
+class widget (QWidget):
+	def __init__(self, parent):
+		super(widget, self).__init__(parent)
+		self.camera1 = cv2.VideoCapture(1)
+		self.camera1.release()
+		self.camera2 = cv2.VideoCapture(2)
+		self.camera2.release()
+		self.wallpaper = QImage("D:\WorkSpace\PYTHON\THREAD\SharpEye")
+		self.FRAME1 = QImage("D:\WorkSpace\PYTHON\THREAD\SharpEye")
+		self.FRAME2 = QImage("D:\WorkSpace\PYTHON\THREAD\SharpEye")
+		self.frame1 = cv2.imread("D:\WorkSpace\PYTHON\THREAD\SharpEye")
+		self.frame2 = cv2.imread("D:\WorkSpace\PYTHON\THREAD\SharpEye")
+		self.Graphic1 = QGraphicsView()
+		self.Graphic2 = QGraphicsView()
+		self.Scene1 = QGraphicsScene()
+		self.Scene2 = QGraphicsScene()
+		self.pixmapitem1 = QGraphicsPixmapItem(QPixmap(self.wallpaper), None, self.Scene1)
+		self.pixmapitem1.mousePressEvent = self.PixSelect_1
+		self.Graphic1.setScene(self.Scene1)
+		self.pixmapitem2 = QGraphicsPixmapItem(QPixmap(self.wallpaper), None, self.Scene2)
+		self.pixmapitem2.mousePressEvent = self.PixSelect_2
+		self.Graphic2.setScene(self.Scene2)
+		self.label1 = QLabel("select Pixel in screen_1")
+		self.label2 = QLabel("select Pixel in Screen_2")
+		
+		self.start_cam1 = QPushButton("&Start_Cam1")
+		self.start_cam2 = QPushButton("&Start_Cam2")
+		self.stop_cam1 = QPushButton("&Stop_Cam1")
+		self.stop_cam2 = QPushButton("&Stop_Cam2")
+		
+		glayout = QGridLayout()
+		glayout.addWidget(self.start_cam1, 0, 0)
+		glayout.addWidget(self.start_cam2, 0, 1)
+		glayout.addWidget(self.stop_cam1, 1, 0)
+		glayout.addWidget(self.stop_cam2, 1, 1)
+		layout1 = QHBoxLayout()
+		layout1.addWidget(self.Graphic1)
+		layout1.addWidget(self.Graphic2)
+		layout1.addLayout(glayout)
+		layout2 = QVBoxLayout()
+		layout2.addWidget(self.label1)
+		layout2.addWidget(self.label2)
+		layout2.addLayout(layout1)
+		self.setLayout(layout2)
+		
+		self.C1 = cam1()
+		self.C2 = cam2()
+		
+		self.connect(self.start_cam1, SIGNAL("clicked()"), self.Start1)
+		self.connect(self.start_cam2, SIGNAL("clicked()"), self.Start2)
+		self.connect(self.stop_cam1, SIGNAL("clicked()"), self.Stop1)
+		self.connect(self.stop_cam2, SIGNAL("clicked()"), self.Stop2)
+		
+		self.connect(self.C1, SIGNAL('1'), self.function1)
+		self.connect(self.C2, SIGNAL('2'), self.function2)
+	
+	def PixSelect_1 (self, event):
+		Position = QPoint (event.pos().x(), event.pos().y())
+		color = QColor.fromRgb (self.FRAME1.pixel(Position))
+		
+		if color.isValid():
+			rgbColor = '('+str(color.red())+','+str(color.green())+','+str(color.blue())+','+str(color.alpha())+')'
+			self.label1.setText('Pixel position = (' + str( event.pos().x() ) + ' , ' + str( event.pos().y() )+ ') - Value (R,G,B,A)= ' + rgbColor)
+		else:
+            #self.setWindowTitle( 'Pixel position = (' + str( event.pos().x() ) + ' , ' + str( event.pos().y() )+ ') - color not valid')
+			self.label.setText('Pixel position = (' + str( event.pos().x() ) + ' , ' + str( event.pos().y() )+ ') - color not valid')
+	def PixSelect_2 (self, event):
+		Position = QPoint (event.pos().x(), event.pos().y())
+		color = QColor.fromRgb (self.FRAME2.pixel(Position))
+		if color.isValid():
+			rgbColor = '('+str(color.red())+','+str(color.green())+','+str(color.blue())+','+str(color.alpha())+')'
+			self.label2.setText('Pixel position = (' + str( event.pos().x() ) + ' , ' + str( event.pos().y() )+ ') - Value (R,G,B,A)= ' + rgbColor)
+		
+	def function1(self):
+		ret, self.frame1=self.camera1.read()
+		self.frame = cv2.cvtColor(self.frame1, cv2.COLOR_BGR2RGB) #Remind It.....
+		self.FRAME1 = QImage(self.frame1, self.frame1.shape[1], self.frame1.shape[0], QImage.Format_RGB888)		#An Important Statement....
+		self.pixmapitem1 = QGraphicsPixmapItem(QPixmap(self.FRAME1), None, self.Scene1)
+		self.Graphic1.setScene(self.Scene1)
+				
+	def function2(self):
+		ret, self.frame2=self.camera2.read()
+		self.frame2 = cv2.cvtColor(self.frame2, cv2.COLOR_BGR2RGB) #Remind It.....
+		self.FRAME2= QImage(self.frame2, self.frame2.shape[1], self.frame2.shape[0], QImage.Format_RGB888)		#An Important Statement....
+		self.pixmapitem2 = QGraphicsPixmapItem(QPixmap(self.FRAME2), None, self.Scene2)
+		#self.Graphic2.setScene(self.Scene2)
+		#self.FRAME2
+		self.frame2
+		
+	def Start1 (self):
+		self.camera1 = cv2.VideoCapture(1)
+		self.C1.start()
+	def Start2 (self):
+		self.camera2 = cv2.VideoCapture(2)
+		self.C2.start()
+	def Stop1 (self):
+		self.C1.quit()
+		self.C1.terminate()
+		
+		
+		self.pixmapitem1 = QGraphicsPixmapItem(QPixmap(self.wallpaper), None, self.Scene1)
+		self.Graphic1.setScene(self.Scene1)
+		self.camera1.release()
+		
+	def Stop2 (self):
+		self.C2.quit()
+		self.C2.terminate()
+		
+		
+		self.pixmapitem2 = QGraphicsPixmapItem(QPixmap(self.wallpaper), None, self.Scene2)
+		self.Graphic2.setScene(self.Scene2)
+		self.camera2.release()
+		
+app =QApplication(argv)
+MyWindow = main_window()
+MyWindow.show()
+app.exec_()
